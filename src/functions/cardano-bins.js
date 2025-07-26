@@ -10,7 +10,13 @@ const exec = promisify(execCallback);
 const fetchWithRetry = async (url, options = {}, maxRetries = 3, delay = 1000) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-            const response = await fetch(url, options);
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    'User-Agent': 'cardano-tools-action/0.0.1 (+https://github.com/Qafana/cardano-tools-action)',
+                    ...options.headers
+                }
+            });
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
@@ -33,8 +39,11 @@ const fetchWithRetry = async (url, options = {}, maxRetries = 3, delay = 1000) =
 const BINS_BASE_URL = 'https://github.com/cardano-foundation/cardano-wallet';
 
 const get_latest_release_tag = async () => {
-    const response = await fetchWithRetry(`${BINS_BASE_URL}/releases/latest`, { method: 'GET',
-        headers: { 'Accept': 'application/json' }
+    const response = await fetchWithRetry(`${BINS_BASE_URL}/releases/latest`, { 
+        method: 'GET',
+        headers: { 
+            'Accept': 'application/json'
+        }
     });
     const data = await response.json();
     return data.tag_name;
