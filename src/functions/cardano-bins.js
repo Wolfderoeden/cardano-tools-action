@@ -69,8 +69,6 @@ const getPlatformReleaseUrl = async () => {
 };
 export const downloadLatestRelease = async () => {
     const url = await getPlatformReleaseUrl();
-    const response = await fetchWithRetry(url);
-    const buffer = await response.arrayBuffer();
     const urlObj = new URL(url);
     const file_name = urlObj.pathname.split('/').pop();
     if (!file_name) {
@@ -79,7 +77,14 @@ export const downloadLatestRelease = async () => {
     const dir = './bins';
     mkdirSync(dir, { recursive: true });
     const filePath = path.join(dir, file_name);
-    writeFileSync(filePath, Buffer.from(buffer));
+    
+    // Use curl for more reliable downloads in CI/CD environments
+    try {
+        await exec(`curl -L -f --retry 5 --retry-delay 5 --connect-timeout 10 -o "${filePath}" "${url}"`);
+    } catch (error) {
+        console.error(`Error downloading file with curl: ${error}`);
+        throw error;
+    }
 };
 export const unpackLatestRelease = async () => {
     const url = await getPlatformReleaseUrl();
