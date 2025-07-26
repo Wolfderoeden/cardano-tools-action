@@ -6,10 +6,34 @@ import { promisify } from 'util';
 
 const exec = promisify(execCallback);
 
+// Retry mechanism for network requests
+const fetchWithRetry = async (url, options = {}, maxRetries = 3, delay = 1000) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response;
+        } catch (error) {
+            console.log(`Attempt ${attempt} failed:`, error.message);
+            
+            if (attempt === maxRetries) {
+                throw error;
+            }
+            
+            // Exponential backoff: wait longer between each retry
+            const waitTime = delay * Math.pow(2, attempt - 1);
+            console.log(`Retrying in ${waitTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+    }
+};
+
 const BINS_BASE_URL = 'https://github.com/cardano-foundation/cardano-wallet';
 
 const get_latest_release_tag = async () => {
-    const response = await fetch(`${BINS_BASE_URL}/releases/latest`, { method: 'GET',
+    const response = await fetchWithRetry(`${BINS_BASE_URL}/releases/latest`, { method: 'GET',
         headers: { 'Accept': 'application/json' }
     });
     const data = await response.json();
@@ -36,7 +60,7 @@ const getPlatformReleaseUrl = async () => {
 };
 export const downloadLatestRelease = async () => {
     const url = await getPlatformReleaseUrl();
-    const response = await fetch(url);
+    const response = await fetchWithRetry(url);
     const buffer = await response.arrayBuffer();
     const urlObj = new URL(url);
     const file_name = urlObj.pathname.split('/').pop();
